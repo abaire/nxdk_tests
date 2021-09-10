@@ -2,5 +2,8 @@
 
 Unit test suite for the [nxdk](https://github.com/XboxDev/nxdk)
 
-Utilizes the [doctest](https://github.com/onqtam/doctest) unit testing framework.
+## Test framework
+
+Note: [doctest](https://github.com/onqtam/doctest) unfortunately makes some assumptions about operating in Windows 
+(specifically that `io.h` exists) which are not true in the context of the nxdk.
 
