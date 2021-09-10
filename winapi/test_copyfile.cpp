@@ -1,26 +1,29 @@
 #include <windows.h>
 
+#include <algorithm>
+
 #include "test_registry.h"
 
-static bool setup() {
-  HANDLE h;
-  uint8_t buffer[1024] = {0};
+using namespace TestRegistry;
 
-  h = CreateFile(R"(Z:\test.dat)", GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS,
+static LPCSTR test_source_file = R"(Z:\test.dat)";
+static uint8_t test_source_file_content[1024] = {0};
+
+static BOOL CreateTestFile(LPCSTR filename, void *content,
+                           DWORD content_length) {
+  HANDLE h;
+
+  h = CreateFile(filename, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
                  FILE_ATTRIBUTE_NORMAL, nullptr);
   if (h == INVALID_HANDLE_VALUE) {
-    DbgPrint("Failed to create test file. 0x%x", GetLastError());
+    PrintFailWithLastError("Failed to create test file.");
     return FALSE;
   }
 
-  for (int i = 0; i < 1024; ++i) {
-    buffer[i] = (i & 0xFF);
-  }
-
   DWORD bytesWritten;
-  BOOL success = WriteFile(h, buffer, sizeof(buffer), &bytesWritten, nullptr);
+  BOOL success = WriteFile(h, content, content_length, &bytesWritten, nullptr);
   if (!success) {
-    DbgPrint("Failed to write to test file. 0x%x", GetLastError());
+    PrintFailWithLastError("Failed to write to test file.");
     CloseHandle(h);
     return FALSE;
   }
@@ -28,39 +31,143 @@ static bool setup() {
   return CloseHandle(h);
 }
 
-static void teardown() { DeleteFile(R"(Z:\test.dat)"); }
-
-static void TestCopyFile() {
-  WIN32_FIND_DATA find_data;
-  HANDLE h;
-  BOOL success;
-
-  h = FindFirstFile(R"(Z:\*)", &find_data);
-  if (h != INVALID_HANDLE_VALUE) {
-    do {
-      if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        DbgPrint("Dir: %s\n", find_data.cFileName);
-      } else {
-        LARGE_INTEGER filesize;
-        filesize.LowPart = find_data.nFileSizeLow;
-        filesize.HighPart = find_data.nFileSizeHigh;
-
-        DbgPrint("File: %s - %lld\n", find_data.cFileName, filesize.QuadPart);
-      }
-    } while (FindNextFile(h, &find_data));
-
-    CloseHandle(h);
-  } else {
-    DbgPrint("[ERROR] Failed to find files in Z:\\. 0x%x", GetLastError());
+static BOOL VerifyFileContent(LPCSTR filename, void *expected_content,
+                              DWORD expected_content_length) {
+  HANDLE h = CreateFile(filename, FILE_GENERIC_READ, FILE_SHARE_READ, nullptr,
+                        OPEN_ALWAYS, 0, nullptr);
+  if (h == INVALID_HANDLE_VALUE) {
+    PrintFailWithLastError("Failed to open target file '%s' for validation.",
+                           filename);
+    return FALSE;
   }
 
-  success = CopyFile(R"(Z:\test.dat)", R"(Z:\copied.dat)", FALSE);
-  if (!success) {
-    DbgPrint("[ERROR] Failed to copy test file to new path. 0x%x",
-             GetLastError());
-  } else {
-    DeleteFile(R"(Z:\copied.dat)");
+  uint8_t buffer[4096] = {0};
+  const uint8_t *expected_content_start =
+      static_cast<uint8_t *>(expected_content);
+  const uint8_t *expected_read_ptr = static_cast<uint8_t *>(expected_content);
+
+  while (TRUE) {
+    DWORD bytes_read = 0;
+    if (!ReadFile(h, buffer, sizeof(buffer), &bytes_read, nullptr)) {
+      PrintFailWithLastError("Failed to read from '%s' for validation.",
+                             filename);
+      CloseHandle(h);
+      return FALSE;
+    }
+
+    if (!bytes_read) {
+      break;
+    }
+
+    DWORD offset = expected_read_ptr - expected_content_start;
+    if (offset + bytes_read > expected_content_length) {
+      PrintFail(
+          "Validation of '%s' failed. File is larger than expected size %lu.",
+          expected_content_length);
+      CloseHandle(h);
+      return FALSE;
+    }
+
+    auto end = expected_read_ptr + bytes_read;
+    auto mismatch = std::mismatch(expected_read_ptr, end, buffer);
+    if (mismatch.first < end) {
+      PrintFail(
+          "Validation of '%s' failed. Bytes at '%lu' differ: expected 0x%x but "
+          "have 0x%x.",
+          filename, offset + (mismatch.first - expected_read_ptr),
+          *mismatch.first, *mismatch.second);
+      CloseHandle(h);
+      return FALSE;
+    }
+
+    expected_read_ptr += bytes_read;
   }
+
+  CloseHandle(h);
+
+  DWORD file_size = expected_read_ptr - expected_content_start;
+  if (file_size < expected_content_length) {
+    PrintFail(
+        "Validation of '%s' failed. File size %lu is smaller than expected "
+        "size %lu.",
+        file_size, expected_content_length);
+    return FALSE;
+  }
+
+  return TRUE;
 }
 
-TEST_CASE(TestCopyFile, setup, teardown)
+static BOOL Setup() {
+  for (int i = 0; i < 1024; ++i) {
+    test_source_file_content[i] = (i & 0xFF);
+  }
+
+  return CreateTestFile(test_source_file, test_source_file_content,
+                        sizeof(test_source_file_content));
+}
+
+static void Teardown() { DeleteFile(test_source_file); }
+
+TEST_CASE(CopyFile_ExistsToNew, Setup, Teardown) {
+  BOOL success;
+  static const LPCSTR target = R"(Z:\copied.dat)";
+
+  success = CopyFile(test_source_file, target, FALSE);
+  if (!success) {
+    PrintFailWithLastError("Failed to copy test file to new path.");
+    return FALSE;
+  }
+
+  success = VerifyFileContent(target, test_source_file_content,
+                              sizeof(test_source_file_content));
+  DeleteFile(target);
+
+  return success;
+}
+
+TEST_CASE(CopyFile_ExistsToExists_Overwrite, Setup, Teardown) {
+  static const LPCSTR target = R"(Z:\target.dat)";
+  uint8_t buffer[1024] = {0};
+  for (int i = 0; i < 1024; ++i) {
+    buffer[i] = (1023 - i) & 0xFF;
+  }
+
+  if (!CreateTestFile(target, buffer, sizeof(buffer))) {
+    PrintFailWithLastError("Failed to generate test file.");
+    return FALSE;
+  }
+
+  BOOL success = CopyFile(test_source_file, target, FALSE);
+  if (!success) {
+    DbgPrint("[ERROR] Failed to overwrite target file.");
+  }
+
+  success = VerifyFileContent(target, test_source_file_content,
+                              sizeof(test_source_file_content));
+
+  DeleteFile(target);
+  return success;
+}
+
+TEST_CASE(CopyFile_ExistsToExists_NoOverwrite, Setup, Teardown) {
+  static const LPCSTR target = R"(Z:\target.dat)";
+  uint8_t buffer[1024] = {0};
+  for (int i = 0; i < 1024; ++i) {
+    buffer[i] = (1023 - i) & 0xFF;
+  }
+
+  if (!CreateTestFile(target, buffer, sizeof(buffer))) {
+    PrintFailWithLastError("Failed to generate test file.");
+    return FALSE;
+  }
+
+  BOOL success = CopyFile(test_source_file, target, TRUE);
+  if (success) {
+    DbgPrint("[ERROR] Overwrote target file when disallowed.");
+  }
+
+  success = VerifyFileContent(target, buffer, sizeof(buffer));
+
+  DeleteFile(target);
+  return success;
+}
