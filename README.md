@@ -2,8 +2,18 @@
 
 Unit test suite for the [nxdk](https://github.com/XboxDev/nxdk)
 
-## Test framework
+## Running with CLion
 
-Note: [doctest](https://github.com/onqtam/doctest) unfortunately makes some assumptions about operating in Windows 
-(specifically that `io.h` exists) which are not true in the context of the nxdk.
+Create a build target
+
+1. Create a new `Embedded GDB Server` target
+1. Set the Target to `all`
+1. Set the Executable to `main.exe`
+1. Set `Download executable` to `None`
+1. Set `'target remote' args` to `127.0.0.1:1234`
+1. Set `GDB Server` to the path to the xemu binary
+1. Set `GDB Server args` to `-s -S` (the `-S` is optional and will cause xemu to wait for the debugger to connnect)
+
+To capture DbgPrint, additionally append `-device lpc47m157 -serial tcp:127.0.0.1:9091` to `GDB Server args` and use
+something like [pykdclient](https://github.com/abaire/pykdclient).
 
