@@ -57,5 +57,6 @@ int main() {
 
   TestRegistry::run_tests();
 
+  Sleep(60 * 1000);
   return 0;
 }

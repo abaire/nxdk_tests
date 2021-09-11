@@ -1,4 +1,4 @@
-XBE_TITLE = nxdk_tests-winapi
+XBE_TITLE = nxdk_tests
 GEN_XISO = $(XBE_TITLE).iso
 NXDK_DIR ?= $(CURDIR)/../nxdk
 NXDK_CXX = y

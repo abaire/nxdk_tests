@@ -221,7 +221,8 @@ TEST_CASE(CopyFile_OverSelfWithNonexistentSource_Fails, Setup, Teardown) {
     return FALSE;
   }
 
-  if (GetLastError() != ERROR_INVALID_NAME) {
+  DWORD lastError = GetLastError();
+  if (lastError != ERROR_PATH_NOT_FOUND && lastError != ERROR_INVALID_NAME) {
     PrintFailWithLastError("Copy failed but did not flag invalid source file as missing.");
     return FALSE;
   }
@@ -235,7 +236,8 @@ TEST_CASE(CopyFile_WithNonexistentSource_Fails, Setup, Teardown) {
     return FALSE;
   }
 
-  if (GetLastError() != ERROR_INVALID_NAME) {
+  DWORD lastError = GetLastError();
+  if (lastError != ERROR_PATH_NOT_FOUND && lastError != ERROR_INVALID_NAME) {
     PrintFailWithLastError("Copy failed but did not flag invalid source file as missing.");
     return FALSE;
   }

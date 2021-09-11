@@ -5,12 +5,10 @@
 
 namespace TestRegistry {
 
-  // Workaround for undefined static initialization ordering.
-std::vector<TestCase*> & test_registry()
-{
-    static std::vector<TestCase*> registry;
-    return registry;
-}
+static std::vector<TestCase*> registry;
+
+// Workaround for undefined static initialization ordering.
+std::vector<TestCase*>& test_registry() { return registry; }
 
 void run_tests() {
   std::vector<std::string> failed_tests;
