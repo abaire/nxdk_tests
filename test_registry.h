@@ -24,7 +24,7 @@ inline void PrintFail(LPCSTR message, VarArgs &&...args) {
   std::string buf;
   buf.resize(string_length);
 
-  snprintf(buf.data(), string_length, message, args...);
+  snprintf(&buf[0], string_length, message, args...);
   PrintFail(buf.c_str());
 }
 
@@ -38,7 +38,7 @@ inline void PrintFailWithLastError(LPCSTR message, VarArgs &&...args) {
   std::string buf;
   buf.resize(string_length);
 
-  snprintf(buf.data(), string_length, message, args...);
+  snprintf(&buf[0], string_length, message, args...);
   PrintFailWithLastError(buf.c_str());
 }
 
@@ -49,7 +49,7 @@ inline void PrintFailWithLastError(LPCSTR message, VarArgs &&...args) {
                   __teardown_method_name__)                                  \
   static BOOL __method_name__();                                             \
   struct TEST##__method_name__ : TestRegistry::TestCase {                    \
-    TEST##__method_name__() { TestRegistry::test_registry.push_back(this); } \
+    TEST##__method_name__() { TestRegistry::test_registry().push_back(this); } \
     std::string name() const override { return #__method_name__; }           \
     BOOL operator()() override {                                             \
       if (verbose) {                                                         \
@@ -74,7 +74,7 @@ void run_tests();
 BOOL dummy_setup_();
 void dummy_teardown_();
 
-extern std::vector<TestCase *> test_registry;
+std::vector<TestCase *>& test_registry();
 
 }  // namespace TestRegistry
 #endif  // NXDK_TESTS_TEST_REGISTRY_H

@@ -167,7 +167,7 @@ TEST_CASE(CopyFile_OverExisting_Overwrite_Succeeds, Setup, Teardown) {
 
   BOOL success = CopyFile(test_source_file, target, FALSE);
   if (!success) {
-    PrintFailWithLastError("[ERROR] Failed to overwrite target file.");
+    PrintFailWithLastError("Failed to overwrite target file.");
   }
 
   success = VerifyFileContent(target, test_source_file_content,
@@ -191,7 +191,7 @@ TEST_CASE(CopyFile_OverExisting_NoOverwrite_Fails, Setup, Teardown) {
 
   BOOL success = CopyFile(test_source_file, target, TRUE);
   if (success) {
-    PrintFail("[ERROR] Overwrote target file when disallowed.");
+    PrintFail("Overwrote target file when disallowed.");
     success = FALSE;
   } else {
     success = VerifyFileContent(target, buffer, sizeof(buffer));
@@ -201,21 +201,28 @@ TEST_CASE(CopyFile_OverExisting_NoOverwrite_Fails, Setup, Teardown) {
   return success;
 }
 
-TEST_CASE(CopyFile_OverSelf_Succeeds, Setup, Teardown) {
-  BOOL success = CopyFile(test_source_file, test_source_file, FALSE);
-  if (!success) {
-    PrintFailWithLastError("Failed to copy over self.");
-  } else {
-    success = VerifyFileContent(test_source_file, test_source_file_content,
-                                sizeof(test_source_file_content));
+TEST_CASE(CopyFile_OverSelf_Fails, Setup, Teardown) {
+  if (CopyFile(test_source_file, test_source_file, FALSE)) {
+    PrintFailWithLastError("Was allowed to copy over self.");
+    return FALSE;
   }
 
-  return success;
+  if (GetLastError() != ERROR_SHARING_VIOLATION) {
+    PrintFailWithLastError("Copy failed but did not flag sharing violation.");
+    return FALSE;
+  }
+
+  return TRUE;
 }
 
 TEST_CASE(CopyFile_OverSelfWithNonexistentSource_Fails, Setup, Teardown) {
   if (CopyFile(R"(qq:\__fake_file.dat)", R"(qq:\__fake_file.dat)", FALSE)) {
     PrintFail("CopyFile signaled success copying non-existent file.");
+    return FALSE;
+  }
+
+  if (GetLastError() != ERROR_INVALID_NAME) {
+    PrintFailWithLastError("Copy failed but did not flag invalid source file as missing.");
     return FALSE;
   }
 
@@ -225,6 +232,11 @@ TEST_CASE(CopyFile_OverSelfWithNonexistentSource_Fails, Setup, Teardown) {
 TEST_CASE(CopyFile_WithNonexistentSource_Fails, Setup, Teardown) {
   if (CopyFile(R"(qq:\__fake_file.dat)", R"(z:\nonexistentfile.dat)", FALSE)) {
     PrintFail("CopyFile signaled success copying non-existent file.");
+    return FALSE;
+  }
+
+  if (GetLastError() != ERROR_INVALID_NAME) {
+    PrintFailWithLastError("Copy failed but did not flag invalid source file as missing.");
     return FALSE;
   }
 

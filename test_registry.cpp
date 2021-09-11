@@ -4,14 +4,20 @@
 #include <vector>
 
 namespace TestRegistry {
-std::vector<TestCase*> test_registry;
+
+  // Workaround for undefined static initialization ordering.
+std::vector<TestCase*> & test_registry()
+{
+    static std::vector<TestCase*> registry;
+    return registry;
+}
 
 void run_tests() {
   std::vector<std::string> failed_tests;
   DWORD num_tests = 0;
   DWORD num_failures = 0;
 
-  for (auto& it : test_registry) {
+  for (auto& it : test_registry()) {
     ++num_tests;
     if (!it->operator()()) {
       failed_tests.push_back(it->name());
