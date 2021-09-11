@@ -42,15 +42,8 @@ inline void PrintFailWithLastError(LPCSTR message, VarArgs &&...args) {
   PrintFailWithLastError(buf.c_str());
 }
 
-#define TEST_CASE_BASIC(__method_name__)                                     \
-  static BOOL __method_name__();                                             \
-  struct TEST##__method_name__ : TestRegistry::TestCase {                    \
-    TEST##__method_name__() { TestRegistry::test_registry.push_back(this); } \
-    std::string name() const override { return #__method_name__; }           \
-    BOOL operator()() override { return __method_name__(); }                 \
-  };                                                                         \
-  struct TEST##__method_name__ TEST##__method_name__##_instance__;           \
-  static BOOL __method_name__()
+#define TEST_CASE_BASIC(__method_name__) \
+  TEST_CASE(__method_name__, TestRegistry::dummy_setup_, TestRegistry::dummy_teardown_)
 
 #define TEST_CASE(__method_name__, __setup_method_name__,                    \
                   __teardown_method_name__)                                  \
@@ -60,7 +53,7 @@ inline void PrintFailWithLastError(LPCSTR message, VarArgs &&...args) {
     std::string name() const override { return #__method_name__; }           \
     BOOL operator()() override {                                             \
       if (verbose) {                                                         \
-        DbgPrint("Testing " #__method_name__);                               \
+        DbgPrint("<Testing> " #__method_name__);                               \
       }                                                                      \
       if (!__setup_method_name__()) {                                        \
         return FALSE;                                                        \
@@ -77,6 +70,9 @@ inline void PrintFailWithLastError(LPCSTR message, VarArgs &&...args) {
   static BOOL __method_name__()
 
 void run_tests();
+
+BOOL dummy_setup_();
+void dummy_teardown_();
 
 extern std::vector<TestCase *> test_registry;
 

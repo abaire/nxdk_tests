@@ -108,7 +108,7 @@ static BOOL Setup() {
 
 static void Teardown() { DeleteFile(test_source_file); }
 
-TEST_CASE(CopyFile_ExistsToNew, Setup, Teardown) {
+TEST_CASE(CopyFile_ToNewFile_Succeeds, Setup, Teardown) {
   BOOL success;
   static const LPCSTR target = R"(Z:\copied.dat)";
 
@@ -125,7 +125,35 @@ TEST_CASE(CopyFile_ExistsToNew, Setup, Teardown) {
   return success;
 }
 
-TEST_CASE(CopyFile_ExistsToExists_Overwrite, Setup, Teardown) {
+TEST_CASE(CopyFile_ToEntirelyInvalidPath_Fails, Setup, Teardown) {
+  BOOL success;
+  static const LPCSTR target = R"(QQQ:\copied.dat)";
+
+  success = CopyFile(test_source_file, target, FALSE);
+  if (success) {
+    PrintFailWithLastError("Copied test file to invalid path %s.", target);
+    DeleteFile(target);
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+TEST_CASE(CopyFile_ToNonExistentSubdir_Fails, Setup, Teardown) {
+  BOOL success;
+  static const LPCSTR target = R"(Z:\this\is\not__\a\__path__\copied.dat)";
+
+  success = CopyFile(test_source_file, target, FALSE);
+  if (success) {
+    PrintFailWithLastError("Copied test file to non-existing path %s.", target);
+    DeleteFile(target);
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+TEST_CASE(CopyFile_OverExisting_Overwrite_Succeeds, Setup, Teardown) {
   static const LPCSTR target = R"(Z:\target.dat)";
   uint8_t buffer[1024] = {0};
   for (int i = 0; i < 1024; ++i) {
@@ -149,7 +177,7 @@ TEST_CASE(CopyFile_ExistsToExists_Overwrite, Setup, Teardown) {
   return success;
 }
 
-TEST_CASE(CopyFile_ExistsToExists_NoOverwrite, Setup, Teardown) {
+TEST_CASE(CopyFile_OverExisting_NoOverwrite_Fails, Setup, Teardown) {
   static const LPCSTR target = R"(Z:\target.dat)";
   uint8_t buffer[1024] = {0};
   for (int i = 0; i < 1024; ++i) {
@@ -164,10 +192,22 @@ TEST_CASE(CopyFile_ExistsToExists_NoOverwrite, Setup, Teardown) {
   BOOL success = CopyFile(test_source_file, target, TRUE);
   if (success) {
     DbgPrint("[ERROR] Overwrote target file when disallowed.");
+  } else {
+    success = VerifyFileContent(target, buffer, sizeof(buffer));
   }
 
-  success = VerifyFileContent(target, buffer, sizeof(buffer));
-
   DeleteFile(target);
+  return success;
+}
+
+TEST_CASE(CopyFile_OverSelf_Fails, Setup, Teardown) {
+  BOOL success = CopyFile(test_source_file, test_source_file, FALSE);
+  if (success) {
+    DbgPrint("[ERROR] Overwrote self.");
+  } else {
+    success = VerifyFileContent(test_source_file, test_source_file_content,
+                                sizeof(test_source_file_content));
+  }
+
   return success;
 }

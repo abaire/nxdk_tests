@@ -25,4 +25,7 @@ void run_tests() {
   }
 }
 
+BOOL dummy_setup_() { return TRUE; }
+void dummy_teardown_() {}
+
 }  // namespace TestRegistry
