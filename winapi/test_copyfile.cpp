@@ -167,7 +167,7 @@ TEST_CASE(CopyFile_OverExisting_Overwrite_Succeeds, Setup, Teardown) {
 
   BOOL success = CopyFile(test_source_file, target, FALSE);
   if (!success) {
-    DbgPrint("[ERROR] Failed to overwrite target file.");
+    PrintFailWithLastError("[ERROR] Failed to overwrite target file.");
   }
 
   success = VerifyFileContent(target, test_source_file_content,
@@ -191,7 +191,8 @@ TEST_CASE(CopyFile_OverExisting_NoOverwrite_Fails, Setup, Teardown) {
 
   BOOL success = CopyFile(test_source_file, target, TRUE);
   if (success) {
-    DbgPrint("[ERROR] Overwrote target file when disallowed.");
+    PrintFail("[ERROR] Overwrote target file when disallowed.");
+    success = FALSE;
   } else {
     success = VerifyFileContent(target, buffer, sizeof(buffer));
   }
@@ -200,14 +201,32 @@ TEST_CASE(CopyFile_OverExisting_NoOverwrite_Fails, Setup, Teardown) {
   return success;
 }
 
-TEST_CASE(CopyFile_OverSelf_Fails, Setup, Teardown) {
+TEST_CASE(CopyFile_OverSelf_Succeeds, Setup, Teardown) {
   BOOL success = CopyFile(test_source_file, test_source_file, FALSE);
-  if (success) {
-    DbgPrint("[ERROR] Overwrote self.");
+  if (!success) {
+    PrintFailWithLastError("Failed to copy over self.");
   } else {
     success = VerifyFileContent(test_source_file, test_source_file_content,
                                 sizeof(test_source_file_content));
   }
 
   return success;
+}
+
+TEST_CASE(CopyFile_OverSelfWithNonexistentSource_Fails, Setup, Teardown) {
+  if (CopyFile(R"(qq:\__fake_file.dat)", R"(qq:\__fake_file.dat)", FALSE)) {
+    PrintFail("CopyFile signaled success copying non-existent file.");
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+TEST_CASE(CopyFile_WithNonexistentSource_Fails, Setup, Teardown) {
+  if (CopyFile(R"(qq:\__fake_file.dat)", R"(z:\nonexistentfile.dat)", FALSE)) {
+    PrintFail("CopyFile signaled success copying non-existent file.");
+    return FALSE;
+  }
+
+  return TRUE;
 }
